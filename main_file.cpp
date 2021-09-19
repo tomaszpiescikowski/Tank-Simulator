@@ -24,12 +24,27 @@ float speed_x = 0; //angular speed in radians
 float speed_y = 0; //angular speed in radians
 float aspectRatio = 1;
 
+
 GLuint tex;
 
-std::vector<glm::vec4> verts;
-std::vector<glm::vec4> norms;
-std::vector<glm::vec2> texCoords;	//tutaj powinna byc klasa, model3D
-std::vector<unsigned int> indices;
+class Model3D
+{
+public:
+	Model3D();
+	~Model3D();
+	std::vector<glm::vec4> verts;
+	std::vector<glm::vec4> norms;
+	std::vector<glm::vec2> texCoords;	//tutaj powinna byc klasa, model3D
+	std::vector<unsigned int> indices;
+};
+Model3D::Model3D()
+{}
+Model3D::~Model3D()
+{}
+
+
+int numberofmeshes = 0;
+Model3D* models;
 
 
 //Error processing callback procedure
@@ -40,16 +55,16 @@ void error_callback(int error, const char* description) {
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_LEFT) speed_x = -PI / 2;
-		if (key == GLFW_KEY_RIGHT) speed_x = PI / 2;
-		if (key == GLFW_KEY_UP) speed_y = PI / 2;
-		if (key == GLFW_KEY_DOWN) speed_y = -PI / 2;
+		if (key == GLFW_KEY_LEFT) speed_y = -PI / 2;
+		if (key == GLFW_KEY_RIGHT) speed_y = PI / 2;
+		if (key == GLFW_KEY_UP) speed_x = PI / 2;
+		if (key == GLFW_KEY_DOWN) speed_x = -PI / 2;
 	}
 	if (action == GLFW_RELEASE) {
-		if (key == GLFW_KEY_LEFT) speed_x = 0;
-		if (key == GLFW_KEY_RIGHT) speed_x = 0;
-		if (key == GLFW_KEY_UP) speed_y = 0;
-		if (key == GLFW_KEY_DOWN) speed_y = 0;
+		if (key == GLFW_KEY_LEFT) speed_y = 0;
+		if (key == GLFW_KEY_RIGHT) speed_y = 0;
+		if (key == GLFW_KEY_UP) speed_x = 0;
+		if (key == GLFW_KEY_DOWN) speed_x = 0;
 	}
 }
 
@@ -92,74 +107,72 @@ void loadModel(std::string plik) {
 		cout << importer.GetErrorString() << endl;	//jezeli wczytanie pliku sie nie uda, wowczas mamy null i wtedy nam wywali blad
 		//obiekt jeest sam usuwany z pamieci wiec nie usuwamy go pozniej recznie
 	
-	/*
+	
 	//czy w pliku są siatki wielokątów (meshes)
 	if (scene->HasMeshes()) {	
+		
+		models = new Model3D[(int)scene->mNumMeshes];
+		numberofmeshes = (int)scene->mNumMeshes;
+		cout << "Liczba meshy: " << numberofmeshes << endl;
 
-		for (int i = 0; i < scene->mNumMeshes; i++)	//liczba siatek wielokątów
+		for (int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)	//liczba siatek wielokątów
 		{
-			importujMesh(scene->mMeshes[i])	//dostęp do konkretnej siatki
+			aiMesh* mesh = scene->mMeshes[meshIndex];	//dostęp do konkretnej siatki	//pobranie wskażnika na mesh ktory bedziemy przegladac
+
+			for (int vertIndex = 0; vertIndex < mesh->mNumVertices; vertIndex++) {
+
+				aiVector3D vertex = mesh->mVertices[vertIndex];	//aiVector3D podobny do glm::vec3, ten obiekt wspolrzednych posiada pola x,y,z typu float
+				//tablica mVertices posiada mNumVertices wierzcholkow
+
+				models[meshIndex].verts.push_back(glm::vec4(vertex.x, vertex.y, vertex.z, 1));	//przenosimy to do zdefiniowanego przez nas wektora z wiercholkami
+				//cout << vertex.x << " " << vertex.y << " " << vertex.z << endl;
+
+				//z kazdym wierzcholkiem skojarzony jest wektor normalny, robimy tak samo jak powyzej
+				aiVector3D normal = mesh->mNormals[vertIndex];	//aiVector3D podobny do glm::vec3
+
+				models[meshIndex].norms.push_back(glm::vec4(normal.x, normal.y, normal.z, 0));	//0 bo jest to kierunek, a nie pozycja
+				//cout << normal.x << " " << normal.y << " " << normal.z << endl;
+
+				aiVector3D texCoord = mesh->mTextureCoords[0][vertIndex];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
+				models[meshIndex].texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
+
+			}
+
+			//obiekt mesh zawiera roznie tablice mFaces, ktora ma mNumFaces pozycji
+			//dla kazdego wielokata skladowego
+			for (int faceIndex = 0; faceIndex < mesh->mNumFaces; faceIndex++) {
+				aiFace& face = mesh->mFaces[faceIndex]; //face to jeden z wielokatow modelu/siatki (mesha)
+
+				//i teraz kazdy face, zawiera tablice mIndices z mNumIndices pozycjami(3), wskazujacymi na wierzcholki tworzoce ten face(trojkat)
+				//dla kazdego indeksu->wierzcholka tworzacego wielokat
+				//dla aiProcess_Triangulate to zawsze bedzie 3
+				for (int j = 0; j < face.mNumIndices; j++) {
+					models[meshIndex].indices.push_back(face.mIndices[j]);
+				}
+
+			}
+			//kazdy mesh ma 1 material
+			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+
+			/*for (int i = 0; i < 19; i++) {
+				cout << i << " " << material->GetTextureCount((aiTextureType)i) << endl;
+			}*/
+			
+			for (int k = 0; k < material->GetTextureCount(aiTextureType_DIFFUSE); k++) {
+				aiString str; //nazwa pliku
+				/*
+				aiTextureMapping mapping; //jak wygenerowano wsp. texturowania (opcj.)
+				unsigned int uvMapping; //numer zestawu wsp. reksturowania (opcjonalne
+				ai_real blend; //wspolczynnik polaczenia kolorow z kolejna tekstura (ocpjonalne)
+				aiTextureOp op; //sposob laczenia kolorow z kolejna tekstura(opcjonalne)
+				aiTextureMapMode mapMode; //sposob adresowania tekstury (opcjonalne)
+				*/
+				material->GetTexture(aiTextureType_DIFFUSE, k, &str/*, &mapping, &uvMapping, &blend, &op, &mapMode */);
+				cout << str.C_Str() << endl;
+			}
 		}
-
 	}
-		//podobnie można uzyskać dostęp do: listy zrodel swiatla, listy kamer, listy materialow, listy wbudowanych tekstur, listy animacji
-	*/
-
-	aiMesh* mesh = scene->mMeshes[0];	//bierzemy zerowy mesh poniewaz w tym przykladowym programie uzywamy jednego modelu a nie wielu
-	//pobranie wskażnika na mesh ktory bedziemy przegladac
-
-	for (int i = 0; i < mesh->mNumVertices; i++) {
-
-		aiVector3D vertex = mesh->mVertices[i];	//aiVector3D podobny do glm::vec3, ten obiekt wspolrzednych posiada pola x,y,z typu float
-		//tablica mVertices posiada mNumVertices wierzcholkow
-		verts.push_back(glm::vec4(vertex.x, vertex.y, vertex.z, 1));	//przenosimy to do zdefiniowanego przez nas wektora z wiercholkami
-		//cout << vertex.x << " " << vertex.y << " " << vertex.z << endl;
-
-		//z kazdym wierzcholkiem skojarzony jest wektor normalny, robimy tak samo jak powyzej
-		aiVector3D normal = mesh->mNormals[i];	//aiVector3D podobny do glm::vec3
-		norms.push_back(glm::vec4(normal.x, normal.y, normal.z, 0));	//0 bo jest to kierunek, a nie pozycja
-		//cout << normal.x << " " << normal.y << " " << normal.z << endl;
-
-		aiVector3D texCoord = mesh->mTextureCoords[0][i];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
-		texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
-
-	}
-
-	//obiekt mesh zawiera roznie tablice mFaces, ktora ma mNumFaces pozycji
-	//dla kazdego wielokata skladowego
-	for (int i = 0; i < mesh->mNumFaces; i++) {
-		aiFace& face = mesh->mFaces[i]; //face to jeden z wielokatow modelu/siatki (mesha)
-
-		//i teraz kazdy face, zawiera tablice mIndices z mNumIndices pozycjami(3), wskazujacymi na wierzcholki tworzoce ten face(trojkat)
-		//dla kazdego indeksu->wierzcholka tworzacego wielokat
-		//dla aiProcess_Triangulate to zawsze bedzie 3
-		for (int j = 0; j < face.mNumIndices; j++) {
-			indices.push_back(face.mIndices[j]);
-		}
-
-	}
-	
-	//kazdy mesh ma 1 material
-	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-
-	//aiTextureType
-
-	/*for (int i = 0; i < 19; i++) {
-		cout << i << " " << material->GetTextureCount((aiTextureType)i) << endl;
-	}*/
-	//material->
-	for (int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); i++) {
-		aiString str; //nazwa pliku
-		/*
-		aiTextureMapping mapping; //jak wygenerowano wsp. texturowania (opcj.)
-		unsigned int uvMapping; //numer zestawu wsp. reksturowania (opcjonalne
-		ai_real blend; //wspolczynnik polaczenia kolorow z kolejna tekstura (ocpjonalne)
-		aiTextureOp op; //sposob laczenia kolorow z kolejna tekstura(opcjonalne)
-		aiTextureMapMode mapMode; //sposob adresowania tekstury (opcjonalne)
-		*/
-		material->GetTexture(aiTextureType_DIFFUSE, i , &str/*, &mapping, &uvMapping, &blend, &op, &mapMode */);
-		cout << str.C_Str() << endl;
-	}
+		//podobnie można uzyskać dostęp do: listy zrodel swiatla, listy kamer, listy materialow, listy wbudowanych tekstur, listy animacji		
 }
 
 
@@ -180,36 +193,39 @@ void freeOpenGLProgram(GLFWwindow* window) {
 	freeShaders();
 	glDeleteTextures(1, &tex);
 	//************Place any code here that needs to be executed once, after the main loop ends************
+	delete models;
 }
 
 
-void texCube2(glm::mat4 P, glm::mat4 V, glm::mat4 M) {
+void drawModels(glm::mat4 P, glm::mat4 V, glm::mat4 M) {
 
 	spLambertTextured->use();
 	glUniformMatrix4fv(spLambertTextured->u("P"), 1, false, glm::value_ptr(P));
 	glUniformMatrix4fv(spLambertTextured->u("V"), 1, false, glm::value_ptr(V));
 	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(M));
 
+	for (int i = 0; i < numberofmeshes; i++)
+	{
+		glEnableVertexAttribArray(spLambert->a("vertex"));
+		glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
 
-	glEnableVertexAttribArray(spLambertTextured->a("vertex"));
-	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, verts.data());
+		glEnableVertexAttribArray(spLambertTextured->a("texCoord"));
+		glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
 
-	glEnableVertexAttribArray(spLambertTextured->a("texCoord"));
-	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, texCoords.data());
+		glEnableVertexAttribArray(spLambertTextured->a("normal"));
+		glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
 
-	glEnableVertexAttribArray(spLambertTextured->a("normal"));
-	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, norms.data());
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glUniform1i(spLambertTextured->u("tex"), 0);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glUniform1i(spLambertTextured->u("tex"), 0);
+		//glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
+		glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
 
-	//glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
-	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, indices.data());
-
-	glDisableVertexAttribArray(spLambertTextured->a("vertex"));
-	glDisableVertexAttribArray(spLambertTextured->a("color"));
-	glDisableVertexAttribArray(spLambertTextured->a("normal"));
+		glDisableVertexAttribArray(spLambertTextured->a("vertex"));
+		glDisableVertexAttribArray(spLambertTextured->a("color"));
+		glDisableVertexAttribArray(spLambertTextured->a("normal"));
+	}
 }
 
 
@@ -221,11 +237,11 @@ void drawScene(GLFWwindow* window, float angle_x, float angle_y) {
 	glm::mat4 M = glm::mat4(1.0f); //Initialize model matrix with abn identity matrix
 	M = glm::rotate(M, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Multiply model matrix by the rotation matrix around Y axis by angle_y degrees
 	M = glm::rotate(M, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Multiply model matrix by the rotation matrix around X axis by angle_x degrees
-	glm::mat4 V = glm::lookAt(glm::vec3(0.0f, 0.0f, -50.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //Compute view matrix
+	glm::mat4 V = glm::lookAt(glm::vec3(0.0f, 0.0f, -40.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //Compute view matrix
 	glm::mat4 P = glm::perspective(glm::radians(50.0f), 1.0f, 1.0f, 50.0f); //Compute projection matrix
 
 
-	texCube2(P, V, M);
+	drawModels(P, V, M);
 
 	glfwSwapBuffers(window); //Copy back buffer to the front buffer
 }
@@ -241,7 +257,7 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	window = glfwCreateWindow(500, 500, "OpenGL", NULL, NULL);  //Create a window 500pxx500px titled "OpenGL" and an OpenGL context associated with it. 
+	window = glfwCreateWindow(1500, 1500, "OpenGL", NULL, NULL);  //Create a window 500pxx500px titled "OpenGL" and an OpenGL context associated with it. 
 
 	if (!window) //If no window is opened then close the program
 	{
