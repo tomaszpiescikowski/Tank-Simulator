@@ -20,8 +20,10 @@
 #include <assimp/postprocess.h>
 
 
-float speed_x = 0;	//[radians/s]
-float speed_y = 0;	//[radians/s]
+float speed_x = 0; //angular speed in radians
+float speed_y = 0; //angular speed in radians
+float aspectRatio = 1;
+
 GLuint tex;
 
 std::vector<glm::vec4> verts;
@@ -36,35 +38,25 @@ void error_callback(int error, const char* description) {
 }
 
 
-void key_callback(
-	GLFWwindow* window,
-	int key,
-	int scancode,
-	int action,
-	int mod
-) {
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_LEFT) {
-			speed_y = -PI;
-		}
-		if (key == GLFW_KEY_RIGHT) {
-			speed_y = PI;
-		}
-		if (key == GLFW_KEY_UP) {
-			speed_x = -PI;
-		}
-		if (key == GLFW_KEY_DOWN) {
-			speed_x = PI;
-		}
+		if (key == GLFW_KEY_LEFT) speed_x = -PI / 2;
+		if (key == GLFW_KEY_RIGHT) speed_x = PI / 2;
+		if (key == GLFW_KEY_UP) speed_y = PI / 2;
+		if (key == GLFW_KEY_DOWN) speed_y = -PI / 2;
 	}
 	if (action == GLFW_RELEASE) {
-		if (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) {
-			speed_y = 0;
-		}
-		if (key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) {
-			speed_x = 0;
-		}
+		if (key == GLFW_KEY_LEFT) speed_x = 0;
+		if (key == GLFW_KEY_RIGHT) speed_x = 0;
+		if (key == GLFW_KEY_UP) speed_y = 0;
+		if (key == GLFW_KEY_DOWN) speed_y = 0;
 	}
+}
+
+void windowResizeCallback(GLFWwindow* window, int width, int height) {
+	if (height == 0) return;
+	aspectRatio = (float)width / (float)height;
+	glViewport(0, 0, width, height);
 }
 
 GLuint readTexture(const char* filename) {
@@ -177,7 +169,8 @@ void initOpenGLProgram(GLFWwindow* window) {
 	//************Place any code here that needs to be executed once, at the program start************
 	glClearColor(0, 0, 0, 1); //Set color buffer clear color
 	glEnable(GL_DEPTH_TEST); //Turn on pixel depth test based on depth buffer
-	glfwSetKeyCallback(window, key_callback);
+	glfwSetWindowSizeCallback(window, windowResizeCallback);
+	glfwSetKeyCallback(window, keyCallback);
 	tex = readTexture("brick.png");
 	loadModel(std::string("./assets/uploads_files_2792345_Koenigsegg.obj"));
 }
