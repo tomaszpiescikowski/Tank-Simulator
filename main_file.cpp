@@ -42,9 +42,13 @@ GLuint readTexture(const char* filename);
 //Wczytywanie obiektow
 void drawTank(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret);
 void drawBase(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret);
+void drawWheelsRight(glm::mat4 Base, float angle_x, float angle_y);
+void drawWheelsLeft(glm::mat4 Base, float angle_x, float angle_y);
+void drawPads(glm::mat4 Base);
 void drawTurret(glm::mat4 Base, float angle_x_turret, float angle_y_turret);
 void drawGun(glm::mat4 Turret, float angle_y_turret);
 void cleanTank();
+
 //-----------------------------------------------------------------------------------------
 
 
@@ -107,8 +111,8 @@ void loadModel(std::string plik) {
 				models[meshIndex].norms.push_back(glm::vec4(normal.x, normal.y, normal.z, 0));	//0 bo jest to kierunek, a nie pozycja
 				//cout << normal.x << " " << normal.y << " " << normal.z << endl;
 
-				aiVector3D texCoord = mesh->mTextureCoords[0][vertIndex];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
-				models[meshIndex].texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
+				//aiVector3D texCoord = mesh->mTextureCoords[0][vertIndex];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
+				//models[meshIndex].texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
 
 			}
 
@@ -159,7 +163,7 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glfwSetWindowSizeCallback(window, windowResizeCallback);
 	glfwSetKeyCallback(window, keyCallback);
 	tex = readTexture("bricks.png");
-	loadModel(std::string("./assets/untitled.obj"));
+	loadModel(std::string("./assets/m1.obj"));
 }
 
 
@@ -193,40 +197,97 @@ void drawBase(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angl
 	Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
 
 	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Base));
-	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[0].verts.data());
-	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[0].texCoords.data());
-	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[0].norms.data());
+	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[15].verts.data());
+	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[15].texCoords.data());
+	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[15].norms.data());
+	glDrawElements(GL_TRIANGLES, models[15].indices.size(), GL_UNSIGNED_INT, models[15].indices.data());
+	
+	drawWheelsRight(Base, angle_x, angle_y);
+	drawWheelsLeft(Base, angle_x, angle_y);
 
-	glDrawElements(GL_TRIANGLES, models[0].indices.size(), GL_UNSIGNED_INT, models[0].indices.data());
+	drawPads(Base);
 
 	drawTurret(Base, angle_x_turret, angle_y_turret);
 }
+void drawWheelsRight(glm::mat4 Base, float angle_x, float angle_y) {
+	glm::mat4 WheelsRight = Base; //Zainicjuj macierz modelu macierzą jednostkową
+	//WheelsRight = glm::rotate(WheelsRight, angle_y, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
+	//WheelsRight = glm::rotate(WheelsRight, angle_x, glm::vec3(0.0f, 1.0f, .0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+
+	for (int i = 0; i < 2; i++)
+	{
+		if (i == 0 || i == 16 || i == 17 || i == 18 || i == 19 || i == 20 || i == 21 || i == 22)	//indeksy meshow z kolami
+		{
+			glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(WheelsRight));
+			glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
+			glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
+			glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
+			glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
+		}
+	}
+}
+
+void drawWheelsLeft(glm::mat4 Base, float angle_x, float angle_y) {
+	glm::mat4 WheelsLeft = Base; //Zainicjuj macierz modelu macierzą jednostkową
+	//WheelsLeft = glm::rotate(WheelsLeft, angle_y, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
+	//WheelsLeft = glm::rotate(WheelsLeft, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+
+	for (int i = 0; i < 23; i++)
+	{
+		if (i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 8 || i == 9 || i == 10)	//indeksy meshow z kolami
+		{
+
+			glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(WheelsLeft));
+			glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
+			glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
+			glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
+			glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
+		}
+	}
+
+}
+
+void drawPads(glm::mat4 Base) {
+	glm::mat4 Pads = Base; //Zainicjuj macierz modelu macierzą jednostkową
+
+	for (int i = 1; i < 3; i++)
+	{
+		glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Pads));
+		glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
+		glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
+		glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
+		glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
+	}
+}
+
 
 void drawTurret(glm::mat4 Base, float angle_x_turret, float angle_y_turret) {
 	glm::mat4 Turret = Base; //Zainicjuj macierz modelu macierzą jednostkową
 	Turret = glm::rotate(Turret, angle_y_turret, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
+
 	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Turret));
-
-	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[1].verts.data());
-	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[1].texCoords.data());
-	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[1].norms.data());
-
-	glDrawElements(GL_TRIANGLES, models[1].indices.size(), GL_UNSIGNED_INT, models[1].indices.data());
+	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[14].verts.data());
+	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[14].texCoords.data());
+	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[14].norms.data());
+	glDrawElements(GL_TRIANGLES, models[14].indices.size(), GL_UNSIGNED_INT, models[14].indices.data());
 	
 	drawGun(Turret, angle_x_turret);
 }
 
 void drawGun(glm::mat4 Turret, float angle_x_turret) {
+	float angle_x_turret_gun = angle_x_turret / 3;
 	glm::mat4 Gun = Turret; //Zainicjuj macierz modelu macierzą jednostkową
-	Gun = glm::rotate(Gun, angle_x_turret, glm::vec3(0.0f, 0.0f, 1.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
-	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Gun));
-
-	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[2].verts.data());
-	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[2].texCoords.data());
-	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[2].norms.data());
-
-	glDrawElements(GL_TRIANGLES, models[2].indices.size(), GL_UNSIGNED_INT, models[2].indices.data());
-
+	Gun = glm::rotate(Gun, angle_x_turret_gun, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+	
+	for (int i = 11; i < 14; i++)
+	{
+		if (i == 12) continue;	//pominalem chwilowo dziwny obiekt o indexie 12
+		glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Gun));
+		glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
+		glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
+		glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
+		glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
+	}
 	cleanTank();
 }
 
@@ -293,8 +354,15 @@ int main(void)
 		angle_x += speed_x * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
 		angle_y += speed_y * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
 
-		angle_x_turret += speed_x_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
-		angle_y_turret += speed_y_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		if (angle_x_turret <= PI/8 && angle_x_turret >= -PI / 8) 
+			angle_x_turret += speed_x_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		else if (angle_x_turret >= PI / 8 && speed_x_turret < 0) angle_x_turret += speed_x_turret * glfwGetTime();
+		else if (angle_x_turret <= -PI / 8 && speed_x_turret > 0) angle_x_turret += speed_x_turret * glfwGetTime();
+
+		if (angle_y_turret <= PI / 8 && angle_y_turret >= -PI / 8)
+			angle_y_turret += speed_y_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		else if (angle_y_turret >= PI / 8 && speed_y_turret < 0) angle_y_turret += speed_y_turret * glfwGetTime();
+		else if (angle_y_turret <= -PI / 8 && speed_y_turret > 0) angle_y_turret += speed_y_turret * glfwGetTime();
 		
 		glfwSetTime(0); //Wyzeruj licznik czasu
 		drawScene(window, angle_x, angle_y, angle_x_turret, angle_y_turret); //Wykonaj procedurę rysującą
@@ -331,10 +399,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		if (key == GLFW_KEY_UP) speed_x = PI / 2;
 		if (key == GLFW_KEY_DOWN) speed_x = -PI / 2;
 
-		if (key == GLFW_KEY_A) speed_y_turret = -PI / 2;
-		if (key == GLFW_KEY_D) speed_y_turret = PI / 2;
-		if (key == GLFW_KEY_W) speed_x_turret = PI / 2;
-		if (key == GLFW_KEY_S) speed_x_turret = -PI / 2;
+		if (key == GLFW_KEY_A) speed_y_turret = -PI / 10;
+		if (key == GLFW_KEY_D) speed_y_turret = PI / 10;
+		if (key == GLFW_KEY_W) speed_x_turret = -PI / 20;
+		if (key == GLFW_KEY_S) speed_x_turret = PI / 20;
 	}
 	if (action == GLFW_RELEASE) {
 		if (key == GLFW_KEY_LEFT) speed_y = 0;
