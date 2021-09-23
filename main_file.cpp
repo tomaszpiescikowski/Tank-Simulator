@@ -1,103 +1,77 @@
-﻿#define GLM_FORCE_RADIANS
+﻿/* Program cieniujacy dziala na karcie graficznej */
+#define GLM_FORCE_RADIANS
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
+#include <GL/glew.h>	//glew - biblioteka do OpenGL'a
+#include <GLFW/glfw3.h> //glfw - pomocna biblioteka, wyswietlanie okienka GUI
+#include <glm/glm.hpp>  //glm - matematyka do naszych programów
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <stdlib.h>
-#include <stdio.h>
-#include "constants.h"
-#include "allmodels.h"
-#include "lodepng.h"
-#include "shaderprogram.h"
-#include "myCube.h"
 
+//standardowe biblioteki do C++
+#include <stdio.h>	
+#include <stdlib.h>
 #include <iostream>
+
+//pliki naglowkowe zalaczone do projektu - dodatki
+#include "constants.h"	//zawiera zdefiniowane stale, np PI
+#include "allmodels.h" //kod rysujacy przykladowe modele
+#include "lodepng.h"	//sluzy do wczytywania tekstur
+#include "shaderprogram.h"	//modul, ktory realizuje programy cieniujace
 
 #include <assimp/Importer.hpp>	//obiekt ktory wczytuje obiket z modelami 3d
 #include <assimp/scene.h>		//interpretuje cala zawartosc pliku
 #include <assimp/postprocess.h>
 
+/*
+	PREDEFINICJE FUNKCJI
+*/
 
-float speed_x = 0; //angular speed in radians
-float speed_y = 0; //angular speed in radians
-float aspectRatio = 1;
+//Procedura obslugi bledow
+void error_callback(int error, const char* description);
+
+//Procedura obslugi klawiszy
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+//Procedura obslugi rozszerzalnosci okna
+void windowResizeCallback(GLFWwindow* window, int width, int height);
+
+//Wczytywanie tekstury
+GLuint readTexture(const char* filename);
 
 
-GLuint tex;
+//Wczytywanie obiektow
+void drawTank(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret);
+void drawBase(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret);
+void drawTurret(glm::mat4 Base, float angle_x_turret, float angle_y_turret);
+void drawGun(glm::mat4 Turret, float angle_y_turret);
+void cleanTank();
+//-----------------------------------------------------------------------------------------
+
 
 class Model3D
 {
 public:
-	Model3D();
-	~Model3D();
+	Model3D() {};
+	~Model3D() {};
 	std::vector<glm::vec4> verts;
 	std::vector<glm::vec4> norms;
 	std::vector<glm::vec2> texCoords;	//tutaj powinna byc klasa, model3D
 	std::vector<unsigned int> indices;
 };
-Model3D::Model3D()
-{}
-Model3D::~Model3D()
-{}
 
 
+float speed_x_turret = 0;
+float speed_y_turret = 0;
+
+float speed_x = 0;	//[radiany/s]
+float speed_y = 0;	//[radiany/s]
+float aspectRatio = 1;	//okno
 int numberofmeshes = 0;
+GLuint tex;
 Model3D* models;
 
 
-//Error processing callback procedure
-void error_callback(int error, const char* description) {
-	fputs(description, stderr);
-}
-
-
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_LEFT) speed_y = -PI / 2;
-		if (key == GLFW_KEY_RIGHT) speed_y = PI / 2;
-		if (key == GLFW_KEY_UP) speed_x = PI / 2;
-		if (key == GLFW_KEY_DOWN) speed_x = -PI / 2;
-	}
-	if (action == GLFW_RELEASE) {
-		if (key == GLFW_KEY_LEFT) speed_y = 0;
-		if (key == GLFW_KEY_RIGHT) speed_y = 0;
-		if (key == GLFW_KEY_UP) speed_x = 0;
-		if (key == GLFW_KEY_DOWN) speed_x = 0;
-	}
-}
-
-void windowResizeCallback(GLFWwindow* window, int width, int height) {
-	if (height == 0) return;
-	aspectRatio = (float)width / (float)height;
-	glViewport(0, 0, width, height);
-}
-
-GLuint readTexture(const char* filename) {
-	GLuint tex;
-	glActiveTexture(GL_TEXTURE0);
-
-	//Read into computers memory
-	std::vector<unsigned char> image;   //Allocate memory 
-	unsigned width, height;   //Variables for image size
-	//Read the image
-	unsigned error = lodepng::decode(image, width, height, filename);
-
-	//Import to graphics card memory
-	glGenTextures(1, &tex); //Initialize one handle
-	glBindTexture(GL_TEXTURE_2D, tex); //Activate handle
-	//Copy image to graphics cards memory reprezented by the active handle
-	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data());
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	return tex;
-}
-
 void loadModel(std::string plik) {
-
 	using namespace std;
 	//aiProcess_Triangulate - wyszystkie wielokaty przerob na trojkaty - dobra opcja, gwarancja ze wszystujemy model z trojkatow
 	//aiProcess_FlipUVs - odwrocenie wspolrzedniej Y na teksturach, zamiana punktu zaczepienia tekstury z lewego dolnedo na lewy gorny - zeby dobrze sie wczytaly tekstury 
@@ -160,14 +134,14 @@ void loadModel(std::string plik) {
 			
 			for (int k = 0; k < material->GetTextureCount(aiTextureType_DIFFUSE); k++) {
 				aiString str; //nazwa pliku
-				/*
+				
 				aiTextureMapping mapping; //jak wygenerowano wsp. texturowania (opcj.)
 				unsigned int uvMapping; //numer zestawu wsp. reksturowania (opcjonalne
 				ai_real blend; //wspolczynnik polaczenia kolorow z kolejna tekstura (ocpjonalne)
 				aiTextureOp op; //sposob laczenia kolorow z kolejna tekstura(opcjonalne)
 				aiTextureMapMode mapMode; //sposob adresowania tekstury (opcjonalne)
-				*/
-				material->GetTexture(aiTextureType_DIFFUSE, k, &str/*, &mapping, &uvMapping, &blend, &op, &mapMode */);
+				
+				material->GetTexture(aiTextureType_DIFFUSE, k, &str, &mapping, &uvMapping, &blend, &op, &mapMode);
 				cout << str.C_Str() << endl;
 			}
 		}
@@ -179,94 +153,124 @@ void loadModel(std::string plik) {
 //Initialization code procedure
 void initOpenGLProgram(GLFWwindow* window) {
 	initShaders();
-	//************Place any code here that needs to be executed once, at the program start************
-	glClearColor(0, 0, 0, 1); //Set color buffer clear color
+	//Tutaj umieszczamy kod, ktory nalezy wykonac raz, na poczatku programu
+	glClearColor(0.8, 0.8, 0.8, 1); //Ustawianie koloru jakim bedzie czyszczone okno
 	glEnable(GL_DEPTH_TEST); //Turn on pixel depth test based on depth buffer
 	glfwSetWindowSizeCallback(window, windowResizeCallback);
 	glfwSetKeyCallback(window, keyCallback);
-	tex = readTexture("brick.png");
-	loadModel(std::string("./assets/uploads_files_2792345_Koenigsegg.obj"));
+	tex = readTexture("bricks.png");
+	loadModel(std::string("./assets/untitled.obj"));
 }
 
-//Release resources allocated by the program
+
+
+
+//Zwolnienie zasobow zajetych przez program 
 void freeOpenGLProgram(GLFWwindow* window) {
 	freeShaders();
 	glDeleteTextures(1, &tex);
-	//************Place any code here that needs to be executed once, after the main loop ends************
+	//Tutaj umieszaczaj kod, ktory nalezy wykonac po zakonczeniu petli glownej
 	delete models;
 }
 
-
-void drawModels(glm::mat4 P, glm::mat4 V, glm::mat4 M) {
-
-	spLambertTextured->use();
+void drawTank(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret) {
+	spLambertTextured->use();	//Aktywacja programu cieniujacego
 	glUniformMatrix4fv(spLambertTextured->u("P"), 1, false, glm::value_ptr(P));
 	glUniformMatrix4fv(spLambertTextured->u("V"), 1, false, glm::value_ptr(V));
-	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(M));
-
-	for (int i = 0; i < numberofmeshes; i++)
-	{
-		glEnableVertexAttribArray(spLambert->a("vertex"));
-		glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[i].verts.data());
-
-		glEnableVertexAttribArray(spLambertTextured->a("texCoord"));
-		glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[i].texCoords.data());
-
-		glEnableVertexAttribArray(spLambertTextured->a("normal"));
-		glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[i].norms.data());
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex);
-		glUniform1i(spLambertTextured->u("tex"), 0);
-
-		//glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
-		glDrawElements(GL_TRIANGLES, models[i].indices.size(), GL_UNSIGNED_INT, models[i].indices.data());
-
-		glDisableVertexAttribArray(spLambertTextured->a("vertex"));
-		glDisableVertexAttribArray(spLambertTextured->a("color"));
-		glDisableVertexAttribArray(spLambertTextured->a("normal"));
-	}
+	glEnableVertexAttribArray(spLambert->a("vertex"));	//Wlaczenie uzywania danego atrybutu
+	glEnableVertexAttribArray(spLambertTextured->a("texCoord"));	//Wlaczenie uzywania danego atrybutu
+	glEnableVertexAttribArray(spLambertTextured->a("normal"));	//Wlaczenie uzywania danego atrybutu
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glUniform1i(spLambertTextured->u("tex"), 0);
+	drawBase(P, V, angle_x, angle_y, angle_x_turret, angle_y_turret);
 }
 
+void drawBase(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret) {
+
+	glm::mat4 Base = glm::mat4(1.0f); //Zainicjuj macierz modelu macierzą jednostkową
+	Base = glm::rotate(Base, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
+	Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+
+	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Base));
+	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[0].verts.data());
+	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[0].texCoords.data());
+	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[0].norms.data());
+
+	glDrawElements(GL_TRIANGLES, models[0].indices.size(), GL_UNSIGNED_INT, models[0].indices.data());
+
+	drawTurret(Base, angle_x_turret, angle_y_turret);
+}
+
+void drawTurret(glm::mat4 Base, float angle_x_turret, float angle_y_turret) {
+	glm::mat4 Turret = Base; //Zainicjuj macierz modelu macierzą jednostkową
+	Turret = glm::rotate(Turret, angle_y_turret, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
+	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Turret));
+
+	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[1].verts.data());
+	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[1].texCoords.data());
+	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[1].norms.data());
+
+	glDrawElements(GL_TRIANGLES, models[1].indices.size(), GL_UNSIGNED_INT, models[1].indices.data());
+	
+	drawGun(Turret, angle_x_turret);
+}
+
+void drawGun(glm::mat4 Turret, float angle_x_turret) {
+	glm::mat4 Gun = Turret; //Zainicjuj macierz modelu macierzą jednostkową
+	Gun = glm::rotate(Gun, angle_x_turret, glm::vec3(0.0f, 0.0f, 1.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Gun));
+
+	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[2].verts.data());
+	glVertexAttribPointer(spLambertTextured->a("texCoord"), 2, GL_FLOAT, false, 0, models[2].texCoords.data());
+	glVertexAttribPointer(spLambertTextured->a("normal"), 4, GL_FLOAT, false, 0, models[2].norms.data());
+
+	glDrawElements(GL_TRIANGLES, models[2].indices.size(), GL_UNSIGNED_INT, models[2].indices.data());
+
+	cleanTank();
+}
+
+void cleanTank() {
+	glDisableVertexAttribArray(spLambertTextured->a("vertex"));	//Sprzatamy
+	glDisableVertexAttribArray(spLambertTextured->a("color"));
+	glDisableVertexAttribArray(spLambertTextured->a("normal"));
+}
 
 //Drawing procedure
-void drawScene(GLFWwindow* window, float angle_x, float angle_y) {
-	//************Place any code here that draws something inside the window******************l
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color and depth buffers
-
-	glm::mat4 M = glm::mat4(1.0f); //Initialize model matrix with abn identity matrix
-	M = glm::rotate(M, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Multiply model matrix by the rotation matrix around Y axis by angle_y degrees
-	M = glm::rotate(M, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Multiply model matrix by the rotation matrix around X axis by angle_x degrees
-	glm::mat4 V = glm::lookAt(glm::vec3(0.0f, 0.0f, -40.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //Compute view matrix
+void drawScene(GLFWwindow* window, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret) {
+	//Tutaj umieszamy kod rysujacy obraz
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Czyszczenie bufora kolorow i glebi
+	//macierz widoku - obserwator, cel, wysokosc
+	glm::mat4 V = glm::lookAt(glm::vec3(0.0f, 0.0f, -40.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+	//macierz rzutowania
 	glm::mat4 P = glm::perspective(glm::radians(50.0f), 1.0f, 1.0f, 50.0f); //Compute projection matrix
 
+	drawTank(P, V, angle_x, angle_y, angle_x_turret, angle_y_turret);
 
-	drawModels(P, V, M);
-
-	glfwSwapBuffers(window); //Copy back buffer to the front buffer
+	glfwSwapBuffers(window); //Przerzucenie bufora tylniego na przedni
 }
 
 int main(void)
 {
-	GLFWwindow* window; //Pointer to object that represents the application window
+	GLFWwindow* window; //Wskaznik na obiekt reprezentujacy okno
 
-	glfwSetErrorCallback(error_callback);//Register error processing callback procedure
+	glfwSetErrorCallback(error_callback);	//Zarejestruj procedure obslugi bledow
 
-	if (!glfwInit()) { //Initialize GLFW library
+	if (!glfwInit()) { //Zainicjuj biblioteke GLFW, jesli nie mozna - stderr
 		fprintf(stderr, "Can't initialize GLFW.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	window = glfwCreateWindow(1500, 1500, "OpenGL", NULL, NULL);  //Create a window 500pxx500px titled "OpenGL" and an OpenGL context associated with it. 
+	window = glfwCreateWindow(1500, 1500, "Tank Simulator", NULL, NULL);  //Create a window 500pxx500px titled "OpenGL" and an OpenGL context associated with it. 
 
-	if (!window) //If no window is opened then close the program
+	if (!window) //Jezeli okna nie udalo sie utworzyc, to zamknij program
 	{
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
 
-	glfwMakeContextCurrent(window); //Since this moment OpenGL context corresponding to the window is active and all OpenGL calls will refer to this context.
-	glfwSwapInterval(1); //During vsync wait for the first refresh
+	glfwMakeContextCurrent(window); //Od tego momentu kontekst okna staje sie aktywny i polecenia rysujace dzialaja w tym oknie
+	glfwSwapInterval(1); //During vsync wait for the first refresh - //Czekaj na 1 powrot plamki przez pokazaniem ukrytego bufora
 
 	GLenum err;
 	if ((err = glewInit()) != GLEW_OK) { //Initialize GLEW library
@@ -274,23 +278,95 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	initOpenGLProgram(window); //Call initialization procedure
+	initOpenGLProgram(window); //Operacje inicjujace - jestesmy gotowi do dzialania
 
-	//Main application loop
-	float angle_x = 0; //declare variable for storing current rotation angle
-	float angle_y = 0; //declare variable for storing current rotation angle
-	glfwSetTime(0); //clear internal timer
-	while (!glfwWindowShouldClose(window)) //As long as the window shouldnt be closed yet...
+	//Zmienne pomocnicze
+	float angle_y_turret = 0;
+	float angle_x_turret = 0;
+
+	float angle_x = 0; //zadeklaruj zmienna przechowującą aktualny kat obrotu
+	float angle_y = 0; //zadeklaruj zmienna przechowującą aktualny kat obrotu
+	glfwSetTime(0); //Wyzeruj licznik czasu
+	//Glowna petla
+	while (!glfwWindowShouldClose(window)) //Tak długo jak okno nie powinno zostać zamkniete
 	{
-		angle_x += speed_x * glfwGetTime(); //Compute an angle by which the object was rotated during the previous frame
-		angle_y += speed_y * glfwGetTime(); //Compute an angle by which the object was rotated during the previous frame
-		glfwSetTime(0); //clear internal timer
-		drawScene(window, angle_x, angle_y); //Execute drawing procedure
-		glfwPollEvents(); //Process callback procedures corresponding to the events that took place up to now
-	}
-	freeOpenGLProgram(window);
+		angle_x += speed_x * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		angle_y += speed_y * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
 
-	glfwDestroyWindow(window); //Delete OpenGL context and the window.
-	glfwTerminate(); //Free GLFW resources
+		angle_x_turret += speed_x_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		angle_y_turret += speed_y_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
+		
+		glfwSetTime(0); //Wyzeruj licznik czasu
+		drawScene(window, angle_x, angle_y, angle_x_turret, angle_y_turret); //Wykonaj procedurę rysującą
+		glfwPollEvents(); //Wykonaj procedury callback w zalezności od zdarzeń jakie zaszły.
+	}
+
+	freeOpenGLProgram(window);	//Zwalniamy zasoby
+
+	glfwDestroyWindow(window);	//Usun kontekst OpenGL i okno
+	glfwTerminate();	//Zwolnij zasoby zajete przez GLFW
 	exit(EXIT_SUCCESS);
+}
+
+
+
+
+
+void error_callback(int error, const char* description) {
+	fputs(description, stderr);
+}
+
+
+void windowResizeCallback(GLFWwindow* window, int width, int height) {
+	if (height == 0) return;
+	aspectRatio = (float)width / (float)height;
+	glViewport(0, 0, width, height);
+}
+
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (action == GLFW_PRESS) {
+		if (key == GLFW_KEY_LEFT) speed_y = -PI / 2;
+		if (key == GLFW_KEY_RIGHT) speed_y = PI / 2;
+		if (key == GLFW_KEY_UP) speed_x = PI / 2;
+		if (key == GLFW_KEY_DOWN) speed_x = -PI / 2;
+
+		if (key == GLFW_KEY_A) speed_y_turret = -PI / 2;
+		if (key == GLFW_KEY_D) speed_y_turret = PI / 2;
+		if (key == GLFW_KEY_W) speed_x_turret = PI / 2;
+		if (key == GLFW_KEY_S) speed_x_turret = -PI / 2;
+	}
+	if (action == GLFW_RELEASE) {
+		if (key == GLFW_KEY_LEFT) speed_y = 0;
+		if (key == GLFW_KEY_RIGHT) speed_y = 0;
+		if (key == GLFW_KEY_UP) speed_x = 0;
+		if (key == GLFW_KEY_DOWN) speed_x = 0;
+
+		if (key == GLFW_KEY_A) speed_y_turret = 0;
+		if (key == GLFW_KEY_D) speed_y_turret = 0;
+		if (key == GLFW_KEY_W) speed_x_turret = 0;
+		if (key == GLFW_KEY_S) speed_x_turret = 0;
+	}
+}
+
+GLuint readTexture(const char* filename) {
+	GLuint tex;
+	glActiveTexture(GL_TEXTURE0);
+
+	//Wczytywanie do pamieci operacyjnej
+	std::vector<unsigned char> image;   //Alokowanie pamieci 
+	unsigned width, height;   //Zmienne do rozmiaru tekstury
+	//Czytanie tekstury
+	unsigned error = lodepng::decode(image, width, height, filename);
+
+	//Importowanie do karty graficznej
+	glGenTextures(1, &tex); //Inicjacja uchwytu
+	glBindTexture(GL_TEXTURE_2D, tex); //Aktywacja uchwytu
+	//Copy image to graphics cards memory reprezented by the active handle
+	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (unsigned char*)image.data());
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	return tex;
 }
