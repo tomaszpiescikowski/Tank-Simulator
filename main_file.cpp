@@ -43,6 +43,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 //Obsługa myszy
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
+//Naciskanie klawiszy myszy.
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+
 //Obsługa kółka myszy
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
@@ -165,9 +168,10 @@ void initOpenGLProgram(GLFWwindow* window)
 	glEnable(GL_DEPTH_TEST);
 	glfwSetWindowSizeCallback(window, windowResizeCallback);
 	glfwSetKeyCallback(window, keyCallback);					 //Funkcja zwrotna do klawiatury.
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 	glfwSetCursorPosCallback(window, mouse_callback);			 //Funkcja zwrotna do myszy.
 	glfwSetScrollCallback(window, scroll_callback);				 //Funkcja zwrotna do kółka myszy.
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //Znika kursor myszy.
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN); //Znika kursor myszy.
 
 	initializeSystem(particles, n);
 
@@ -216,16 +220,21 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 	//Base = glm::rotate(Base, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
 	///Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
 
-	if (leftRotate == true || rightRotate == true) {
+	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+	Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
+	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+
+	/*if (leftRotate == true || rightRotate == true) {
 		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
 		Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+
 	}
 
 	else
 	{
 		Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
 		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
-	}
+	}*/
 
 	//Base = glm::rotate(Base, Lena_angle, glm::vec3(1.0f, 0.0f, 0.0f));
 
@@ -843,6 +852,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
 		std::cout << "Nacisniety lewy przycisk myszy. Tutaj moze nastapić strzal." << std::endl;
+		shot = true;
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
