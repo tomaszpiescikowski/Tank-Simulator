@@ -103,6 +103,9 @@ glm::vec3 calcDir(float kat_x, float kat_y) {
 }
 
 
+bool leftRotate = false;
+bool rightRotate = false;
+
 //-----Ładowanie modelu--------------------------------------------------------------
 void loadModel(std::string plik) {
 	using namespace std;
@@ -263,7 +266,7 @@ void windowResizeCallback(GLFWwindow* window, int width, int height) {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 
 	float cameraSpeed = 5.5f;
-	if (action == GLFW_PRESS) {
+	if (action == GLFW_PRESS) { 
 		//Zamknij okno przez escape.
 		if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(window, true);
 
@@ -278,8 +281,12 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		if (key == GLFW_KEY_W) speed_x_turret = -PI / 10;
 		if (key == GLFW_KEY_S) speed_x_turret = PI / 10;
 		//Obrót całośći wokół osi Y.
-		if (key == GLFW_KEY_1) Lspeed_obrot = -PI / 4;
-		if (key == GLFW_KEY_2) Lspeed_obrot2 = PI / 4;
+		if (key == GLFW_KEY_1) { Lspeed_obrot = -PI / 4; 
+			leftRotate = true; 
+		}
+		if (key == GLFW_KEY_2) { Lspeed_obrot2 = PI / 4;
+			rightRotate = true; 
+		}
 		//Kamera.
 		if (key == GLFW_KEY_3) cameraPos += cameraSpeed * cameraFront;
 		if (key == GLFW_KEY_4) cameraPos -= cameraSpeed * cameraFront;
@@ -306,8 +313,12 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		if (key == GLFW_KEY_UP) Lena_speed2 = 0;
 		if (key == GLFW_KEY_DOWN) Lena_speed2 = 0;
 
-		if (key == GLFW_KEY_1) Lspeed_obrot = 0;
-		if (key == GLFW_KEY_2) Lspeed_obrot2 = 0;
+		if (key == GLFW_KEY_1) {
+			Lspeed_obrot = 0; leftRotate = false;
+		}
+		if (key == GLFW_KEY_2) {
+			Lspeed_obrot2 = 0; rightRotate = false;
+		}
 
 
 		if (key == GLFW_KEY_A) speed_y_turret = 0;
@@ -514,9 +525,19 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 	glm::mat4 Base = glm::mat4(1.0f); //Zainicjuj macierz modelu macierzą jednostkową
 	//Base = glm::rotate(Base, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
 	///Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
-	Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
-	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
-	//Base = glm::rotate(Base, Lena_angle, glm::vec3(1.0f, 0.0f, 0.0f));
+
+	if (leftRotate == true || rightRotate == true) {
+		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
+		Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+	}
+	
+	else
+	{
+		Base = glm::rotate(Base, (float)0, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
+	}
+																				
+																				//Base = glm::rotate(Base, Lena_angle, glm::vec3(1.0f, 0.0f, 0.0f));
 
 	//Cieniowanie obiektu.
 	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Base));
