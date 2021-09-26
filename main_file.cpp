@@ -69,6 +69,9 @@ void createParticle(Particle& p);
 void initializeSystem(Particle* system, int n);
 void processSystem(Particle* system, glm::vec3 gravity, int n, float timestep);
 
+//Oteksturowany kwadrat
+void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura);
+
 
 //Wczytywanie obiektów
 void drawTank(glm::mat4 P, glm::mat4 V, float angle_x, float angle_y, float angle_x_turret, float angle_y_turret, float Langle_obrot);
@@ -80,13 +83,6 @@ void drawTurret(glm::mat4 Base, float angle_x_turret, float angle_y_turret);
 void drawGun(glm::mat4 Turret, float angle_y_turret);
 void cleanTank();
 
-
-//-------------------------------------------------------------------------------------------------------------
-
-
-
-
-//-------------------------------------------------------------------------------------------------------------
 
 
 class Model3D
@@ -132,7 +128,14 @@ float aspectRatio = 1;
 int numberofmeshes = 0;
 
 //Jednostka teksturująca.
-GLuint tex;
+GLuint tex0;
+GLuint tex1;
+GLuint tex2;
+GLuint tex3;
+GLuint tex4;
+GLuint tex5;
+GLuint tex6;
+GLuint tex7;
 Model3D* models;
 
 //Kamera
@@ -168,14 +171,29 @@ void initOpenGLProgram(GLFWwindow* window)
 	glEnable(GL_DEPTH_TEST);
 	glfwSetWindowSizeCallback(window, windowResizeCallback);
 	glfwSetKeyCallback(window, keyCallback);					 //Funkcja zwrotna do klawiatury.
-	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);	 //Funkcja zwrotna do przycisków myszy.
 	glfwSetCursorPosCallback(window, mouse_callback);			 //Funkcja zwrotna do myszy.
 	glfwSetScrollCallback(window, scroll_callback);				 //Funkcja zwrotna do kółka myszy.
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN); //Znika kursor myszy.
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //Znika kursor myszy. (HIDDEN/DISABLED/NORMAL)
 
 	initializeSystem(particles, n);
 
-	tex = readTexture("bricks.png");
+	glActiveTexture(GL_TEXTURE0);
+	tex0 = readTexture("bottom.png");
+	glActiveTexture(GL_TEXTURE1);
+	tex1 = readTexture("1.png");
+	glActiveTexture(GL_TEXTURE2);
+	tex2 = readTexture("2.png");
+	glActiveTexture(GL_TEXTURE3);
+	tex3 = readTexture("3.png");
+	glActiveTexture(GL_TEXTURE4);
+	tex4 = readTexture("4.png");
+	glActiveTexture(GL_TEXTURE5);
+	tex5 = readTexture("top.png");
+	glActiveTexture(GL_TEXTURE5);
+	tex6 = readTexture("stone-wall.png");
+	glActiveTexture(GL_TEXTURE5);
+	tex7 = readTexture("bricks.png");
 	loadModel(std::string("./assets/m1.obj"));
 }
 
@@ -183,7 +201,14 @@ void initOpenGLProgram(GLFWwindow* window)
 //Zwolnienie zasobow zajetych przez program 
 void freeOpenGLProgram(GLFWwindow* window) {
 	freeShaders();
-	glDeleteTextures(1, &tex);
+	glDeleteTextures(1, &tex0);
+	glDeleteTextures(1, &tex1);
+	glDeleteTextures(1, &tex2);
+	glDeleteTextures(1, &tex3);
+	glDeleteTextures(1, &tex4);
+	glDeleteTextures(1, &tex5);
+	glDeleteTextures(1, &tex6);
+	glDeleteTextures(1, &tex7);
 	//Tutaj umieszaczaj kod, ktory nalezy wykonac po zakonczeniu petli glownej
 	delete models;
 }
@@ -221,8 +246,8 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 	///Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
 
 	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
-	Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
-	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
+	Base = glm::translate(Base, glm::vec3(Lena_angle, 0.0f, Lena_angle2));		//Przesunięcie obiektu.
+	Base = glm::scale(Base, glm::vec3(0.2f, 0.2f, 0.2f));		//Obrót obiektu
 
 	/*if (leftRotate == true || rightRotate == true) {
 		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
@@ -430,56 +455,74 @@ void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_ang
 	glUniformMatrix4fv(spLambert->u("V"), 1, false, glm::value_ptr(V)); //Załaduj do programu cieniującego macierz widoku
 
 	glm::mat4 M = glm::mat4(1.0f);
-	M = glm::translate(M, glm::vec3(-11, 0, 0));
+	M = glm::translate(M, glm::vec3(-11, 0, -10));
+	M = glm::scale(M, glm::vec3(0.8, 0.8, 0.8));
 	//-------------------------Ten kawałek kodu powtarzamy dla każdego obiektu.----------------------------------------------
 	glm::mat4 M1 = M;
 	M1 = glm::translate(M1, glm::vec3(4, 3, 0));
 	M1 = glm::scale(M1, glm::vec3(1, 3, 1));
-	glUniform4f(spLambert->u("color"), 0, 1, 0, 1); //Ustaw kolor rysowania obiektu
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M1)); //Załaduj do programu cieniującego macierz modelu
-	Models::cube.drawSolid(); //Narysuj obiekt
 
 
 	glm::mat4 M2 = M;
 	M2 = glm::translate(M2, glm::vec3(-4, 2, 0));
 	M2 = glm::scale(M2, glm::vec3(1.5, 2, 1));
-	glUniform4f(spLambert->u("color"), 1, 1, 0, 1); //Ustaw kolor rysowania obiektu
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M2)); //Załaduj do programu cieniującego macierz modelu
-	Models::cube.drawSolid(); //Narysuj obiekt
 
 	glm::mat4 M3 = M;
 	M3 = glm::translate(M3, glm::vec3(-1, 1, 5));
 	M3 = glm::scale(M3, glm::vec3(0.5, 1, 1.5));
-	glUniform4f(spLambert->u("color"), 0, 1, 1, 1); //Ustaw kolor rysowania obiektu
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M3)); //Załaduj do programu cieniującego macierz modelu
-	Models::cube.drawSolid(); //Narysuj obiekt
 
 	glm::mat4 M4 = M;
 	M4 = glm::translate(M4, glm::vec3(0, 0.25f, 0));
 	M4 = glm::scale(M4, glm::vec3(0.5, 0.25, 0.5));
-	glUniform4f(spLambert->u("color"), 0, 1, 0, 1); //Ustaw kolor rysowania obiektu
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M4)); //Załaduj do programu cieniującego macierz modelu
-	Models::cube.drawSolid(); //Narysuj obiekt
 
-	glm::mat4 M5 = M;
-	M5 = glm::translate(M5, glm::vec3(0, 0.9f, 0));
-	glUniform4f(spLambert->u("color"), 1, 0, 0, 1); //Ustaw kolor rysowania obiektu
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M5)); //Załaduj do programu cieniującego macierz modelu
-	Models::teapot.drawSolid(); //Narysuj obiekt
+	glm::mat4 Kostka = glm::mat4(1.0f);
+	Kostka = glm::translate(Kostka, glm::vec3(10, 2, -7));
+	Kostka = glm::scale(Kostka, glm::vec3(2.0f, 2.0f, 3.0f));
+	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(Kostka)); //Załaduj do programu cieniującego macierz modelu
 
-	glm::mat4 M6 = M;
-	M6 = glm::translate(M6, glm::vec3(2, 1, 4.5));
-	glUniform4f(spLambert->u("color"), 0.7, 0.7, 0.7, 1); //Ustaw kolor rysowania obiektu
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M6)); //Załaduj do programu cieniującego macierz modelu
-	Models::sphere.drawSolid(); //Narysuj obiekt
 
-	glm::mat4 M7 = glm::mat4(1.0f);
-	M7 = glm::translate(M7, glm::vec3(0, 0, 0));
-	M7 = glm::scale(M7, glm::vec3(50, 0.01, 50));
-	glUniform4f(spLambert->u("color"), 0.1, 0.9, 0, 1); //Ustaw kolor rysowania obiektu
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M7)); //Załaduj do programu cieniującego macierz modelu
-	Models::cube.drawSolid(); //Narysuj obiekt
-	
+	glm::mat4 Kostka2 = glm::mat4(1.0f);
+	Kostka2 = glm::translate(Kostka2, glm::vec3(7.0f, 1, -10.5f));
+	Kostka2 = glm::scale(Kostka2, glm::vec3(3.0f, 1.0f, 1.2f));
+
+	int wymiar = 15;
+	//Podłoga
+	glm::mat4 M_floor = glm::mat4(1.0f);
+	M_floor = glm::scale(M_floor, glm::vec3(wymiar, 0.01f, wymiar));
+	//Ściana z lewej
+	glm::mat4 M_left_wall = glm::mat4(1.0f);
+	M_left_wall = glm::translate(M_left_wall, glm::vec3(-wymiar, wymiar, 0));
+	M_left_wall = glm::scale(M_left_wall, glm::vec3(0.01, wymiar, wymiar));
+	//Ściana z prawej
+	glm::mat4 M_right_wall = glm::mat4(1.0f);
+	M_right_wall = glm::translate(M_right_wall, glm::vec3(wymiar, wymiar, 0));
+	M_right_wall = glm::scale(M_right_wall, glm::vec3(0.01, wymiar, wymiar));
+	//Ściana z tyłu
+	glm::mat4 M_back_wall = glm::mat4(1.0f);
+	M_back_wall = glm::translate(M_back_wall, glm::vec3(0, wymiar, -wymiar));
+	M_back_wall = glm::scale(M_back_wall, glm::vec3(wymiar, wymiar, 0.01));
+	//Sufit
+	glm::mat4 Sufit = glm::mat4(1.0f);
+	Sufit = glm::translate(Sufit, glm::vec3(0, 2 * wymiar, 0));
+	Sufit = glm::scale(Sufit, glm::vec3(wymiar, 0.01f, wymiar));
+
+
+	texCube(P, V, M_floor, tex0);
+	texCube(P, V, M_left_wall, tex1);
+	texCube(P, V, M_right_wall, tex4);
+	texCube(P, V, M_back_wall, tex3);
+	texCube(P, V, Sufit, tex5);
+	texCube(P, V, Kostka, tex6);
+	texCube(P, V, Kostka2, tex6);
+	texCube(P, V, M1, tex6);
+	texCube(P, V, M2, tex7);
+	texCube(P, V, M3, tex7);
+	texCube(P, V, M4, tex7);
+
 
 	//Przerzucenie tylnego bufora na przedni
 	glfwSwapBuffers(window);
@@ -679,7 +722,6 @@ glm::vec3 calcDir(float kat_x, float kat_y) {
 
 GLuint readTexture(const char* filename) {
 	GLuint tex;
-	glActiveTexture(GL_TEXTURE0);
 
 	//Wczytywanie do pamieci operacyjnej
 	std::vector<unsigned char> image;   //Alokowanie pamieci 
@@ -769,22 +811,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		if (key == GLFW_KEY_Q) shot = true;
 
 		//Poruszanie się.
-		if (key == GLFW_KEY_LEFT) Lena_speed = -2 * PI;
-		if (key == GLFW_KEY_RIGHT) Lena_speed = 2 * PI;
-		if (key == GLFW_KEY_UP) Lena_speed2 = 3 * PI;
-		if (key == GLFW_KEY_DOWN) Lena_speed2 = -3 * PI;
+		if (key == GLFW_KEY_LEFT) Lena_speed = -PI/2;
+		if (key == GLFW_KEY_RIGHT) Lena_speed = PI/2;
+		if (key == GLFW_KEY_UP) Lena_speed2 = PI;
+		if (key == GLFW_KEY_DOWN) Lena_speed2 = -PI;
 		//Obrót górą i lufą.
-		if (key == GLFW_KEY_A) speed_y_turret = -PI / 10;
-		if (key == GLFW_KEY_D) speed_y_turret = PI / 10;
-		if (key == GLFW_KEY_W) speed_x_turret = -PI / 10;
-		if (key == GLFW_KEY_S) speed_x_turret = PI / 10;
+		if (key == GLFW_KEY_A) speed_y_turret = -PI / 20;
+		if (key == GLFW_KEY_D) speed_y_turret = PI / 20;
+		if (key == GLFW_KEY_W) speed_x_turret = -PI / 20;
+		if (key == GLFW_KEY_S) speed_x_turret = PI / 20;
 		//Obrót całośći wokół osi Y.
 		if (key == GLFW_KEY_1) {
-			Lspeed_obrot = -PI / 4;
+			Lspeed_obrot = -PI / 10;
 			leftRotate = true;
 		}
 		if (key == GLFW_KEY_2) {
-			Lspeed_obrot2 = PI / 4;
+			Lspeed_obrot2 = PI / 10;
 			rightRotate = true;
 		}
 		//Kamera.
@@ -944,4 +986,49 @@ void processSystem(Particle* particles, glm::vec3 gravity, int n, float timestep
 			initializeSystem(particles, n); 
 		}	
 	}
+}
+
+void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura) {
+	//This array should rather be placed in the myCube.h file, but I placed it here so that the full solution of the exercise is placed in a single procedure
+	float myCubeTexCoords[] = {
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+
+		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+	};
+
+	spTextured->use();
+
+	glUniformMatrix4fv(spTextured->u("P"), 1, false, glm::value_ptr(P));
+	glUniformMatrix4fv(spTextured->u("V"), 1, false, glm::value_ptr(V));
+	glUniformMatrix4fv(spTextured->u("M"), 1, false, glm::value_ptr(M));
+
+
+	glEnableVertexAttribArray(spTextured->a("vertex"));
+	glVertexAttribPointer(spTextured->a("vertex"), 4, GL_FLOAT, false, 0, myCubeVertices);
+
+	glEnableVertexAttribArray(spTextured->a("texCoord"));
+	glVertexAttribPointer(spTextured->a("texCoord"), 2, GL_FLOAT, false, 0, myCubeTexCoords);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tekstura);
+	glUniform1i(spTextured->u("tex"), 0);
+
+	glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
+
+	glDisableVertexAttribArray(spTextured->a("vertex"));
+	glDisableVertexAttribArray(spTextured->a("color"));
 }
