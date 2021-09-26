@@ -397,7 +397,7 @@ void drawGun(glm::mat4 Turret, float angle_x_turret) {
 				//Part = glm::translate(Part, systemxd[i].position); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
 				glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Part));
 				glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, myCubeVertices);
-				glDrawArrays(GL_TRIANGLES, 0, 144);
+				glDrawArrays(GL_TRIANGLES, 0, 36);
 			}
 		}
 		else stopParticles = false;
