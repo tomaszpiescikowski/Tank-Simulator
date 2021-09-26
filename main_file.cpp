@@ -136,6 +136,11 @@ GLuint tex4;
 GLuint tex5;
 GLuint tex6;
 GLuint tex7;
+
+GLuint buda;
+GLuint caterpillars;
+GLuint czarny;
+GLuint kola;
 Model3D* models;
 
 //Kamera
@@ -194,7 +199,14 @@ void initOpenGLProgram(GLFWwindow* window)
 	tex6 = readTexture("stone-wall.png");
 	glActiveTexture(GL_TEXTURE5);
 	tex7 = readTexture("bricks.png");
-	loadModel(std::string("./assets/m1.obj"));
+
+	buda = readTexture("./assets/buda.png");
+	caterpillars = readTexture("./assets/caterpillars.png");
+	czarny = readTexture("./assets/czarny.png");
+	kola = readTexture("./assets/kola.png");
+
+
+	loadModel(std::string("./assets/m2.obj"));
 }
 
 
@@ -263,6 +275,10 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 
 	//Base = glm::rotate(Base, Lena_angle, glm::vec3(1.0f, 0.0f, 0.0f));
 
+			glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+			glBindTexture(GL_TEXTURE_2D, buda);
+
+
 	//Cieniowanie obiektu.
 	glUniformMatrix4fv(spLambertTextured->u("M"), 1, false, glm::value_ptr(Base));
 	glVertexAttribPointer(spLambertTextured->a("vertex"), 4, GL_FLOAT, false, 0, models[15].verts.data());
@@ -271,11 +287,19 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 
 	glDrawElements(GL_TRIANGLES, models[15].indices.size(), GL_UNSIGNED_INT, models[15].indices.data());
 
+
+			glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+			glBindTexture(GL_TEXTURE_2D, kola);
 	drawWheelsRight(Base, Lena_angle, Lena_angle2);
 	drawWheelsLeft(Base, Lena_angle, Lena_angle2);
 
+
+			glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+			glBindTexture(GL_TEXTURE_2D, caterpillars);
 	drawPads(Base);
 
+			glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+			glBindTexture(GL_TEXTURE_2D, buda);
 	drawTurret(Base, angle_x_turret, angle_y_turret);
 }
 
@@ -286,6 +310,7 @@ void drawWheelsRight(glm::mat4 Base, float angle_x, float angle_y) {
 	glm::mat4 WheelsRight = Base; //Zainicjuj macierz modelu macierzą jednostkową
 	//WheelsRight = glm::rotate(WheelsRight, angle_y, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
 	//WheelsRight = glm::rotate(WheelsRight, angle_x, glm::vec3(0.0f, 1.0f, .0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+
 
 	for (int i = 0; i < 23; i++)
 	{
@@ -367,6 +392,9 @@ void drawGun(glm::mat4 Turret, float angle_x_turret) {
 	float angle_x_turret_gun = angle_x_turret / 3;
 	glm::mat4 Gun = Turret; //Zainicjuj macierz modelu macierzą jednostkową
 	Gun = glm::rotate(Gun, angle_x_turret_gun, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
+
+	glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+	glBindTexture(GL_TEXTURE_2D, czarny);
 
 	for (int i = 11; i < 14; i++)
 	{
@@ -489,7 +517,7 @@ void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_ang
 	Kostka2 = glm::translate(Kostka2, glm::vec3(7.0f, 1, -10.5f));
 	Kostka2 = glm::scale(Kostka2, glm::vec3(3.0f, 1.0f, 1.2f));
 
-	int wymiar = 15;
+	int wymiar = 150;
 	//Podłoga
 	glm::mat4 M_floor = glm::mat4(1.0f);
 	M_floor = glm::scale(M_floor, glm::vec3(wymiar, 0.01f, wymiar));
@@ -662,8 +690,8 @@ void loadModel(std::string plik) {
 				models[meshIndex].norms.push_back(glm::vec4(normal.x, normal.y, normal.z, 0));	//0 bo jest to kierunek, a nie pozycja
 				//cout << normal.x << " " << normal.y << " " << normal.z << endl;
 
-				//aiVector3D texCoord = mesh->mTextureCoords[0][vertIndex];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
-				//models[meshIndex].texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
+				aiVector3D texCoord = mesh->mTextureCoords[0][vertIndex];	//0 to numer zestawu wspolrzednych teksturowania, zakladamy ze mamy tylko 1 teksture
+				models[meshIndex].texCoords.push_back(glm::vec2(texCoord.x, texCoord.y));
 
 			}
 
