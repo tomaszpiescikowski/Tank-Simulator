@@ -200,13 +200,13 @@ void initOpenGLProgram(GLFWwindow* window)
 	glActiveTexture(GL_TEXTURE5);
 	tex7 = readTexture("bricks.png");
 
-	buda = readTexture("./assets/buda.png");
-	caterpillars = readTexture("./assets/caterpillars.png");
-	czarny = readTexture("./assets/czarny.png");
-	kola = readTexture("./assets/kola.png");
+	buda = readTexture("buda.png");
+	caterpillars = readTexture("caterpillars.png");
+	czarny = readTexture("czarny.png");
+	kola = readTexture("kola.png");
 
 
-	loadModel(std::string("./assets/m2.obj"));
+	loadModel(std::string("m2.obj"));
 }
 
 
