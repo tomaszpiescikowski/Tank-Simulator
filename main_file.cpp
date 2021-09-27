@@ -59,7 +59,7 @@ GLuint readTexture(const char* filename);
 unsigned int loadCubemap(std::vector<std::string> faces);
 
 //Leny funkcja
-glm::vec3 calcDir(float kat_x, float kat_y);
+glm::vec3 calcDir(float kat_x, float kat_y, glm::vec4 dir);
 
 //Ladowanie modelu
 void loadModel(std::string plik);
@@ -70,7 +70,7 @@ void initializeSystem(Particle* system, int n);
 void processSystem(Particle* system, glm::vec3 gravity, int n, float timestep);
 
 //Oteksturowany kwadrat
-void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura);
+void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura, int wymiar);
 
 
 //Wczytywanie obiektów
@@ -144,8 +144,8 @@ GLuint kola;
 Model3D* models;
 
 //Kamera
-glm::vec3 cameraPos = glm::vec3(0.0f, 6.0f, 30.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraPos = glm::vec3(2.0f, 2.0f, -10.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 //Kamera myszą
@@ -165,26 +165,40 @@ glm::vec3 pos = glm::vec3(0, 2, -11);
 bool leftRotate = false;
 bool rightRotate = false;
 
+// składowe globalnego światła otaczającego
+// wartość początkowa odpowiada wartości domyślnej
+// składowych tego światła
 
+GLfloat ambient_light[4] =
+{
+	0.2, 0.2, 0.2, 1.0
+};
+glm::vec3 pozycjaCzolg = glm::vec3(0.0f);
 
 
 //Procedura inicjująca. Tutaj umieszczamy kod, ktory nalezy wykonac raz, na poczatku programu.
 void initOpenGLProgram(GLFWwindow* window) 
 {
 	initShaders();
-	glClearColor(0.8, 0.8, 0.8, 1); //Ustawianie koloru jakim bedzie czyszczone okno
-	glEnable(GL_DEPTH_TEST);
-	glfwSetWindowSizeCallback(window, windowResizeCallback);
-	glfwSetKeyCallback(window, keyCallback);					 //Funkcja zwrotna do klawiatury.
-	glfwSetMouseButtonCallback(window, mouseButtonCallback);	 //Funkcja zwrotna do przycisków myszy.
-	glfwSetCursorPosCallback(window, mouse_callback);			 //Funkcja zwrotna do myszy.
-	glfwSetScrollCallback(window, scroll_callback);				 //Funkcja zwrotna do kółka myszy.
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //Znika kursor myszy. (HIDDEN/DISABLED/NORMAL)
+	glClearColor(0.8, 0.8, 0.8, 1);								//Ustawianie koloru jakim bedzie czyszczone okno
+
+	glEnable(GL_LIGHTING);										//Włączenie oświetlenia.
+	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_light);		//Parametry globalnego światła otaczającego.
+	glEnable(GL_COLOR_MATERIAL);								//Włączenie obsługi właściwości materiałów.
+	glColorMaterial(GL_FRONT, GL_AMBIENT);						//Właściwości materiału określone przez kolor wierzchołków.
+
+	glEnable(GL_DEPTH_TEST);									//Test głębokości.
+	glfwSetWindowSizeCallback(window, windowResizeCallback);	//Funkcja zwrotna do rozmiaru okna.
+	glfwSetKeyCallback(window, keyCallback);					//Funkcja zwrotna do klawiatury.
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);	//Funkcja zwrotna do przycisków myszy.
+	glfwSetCursorPosCallback(window, mouse_callback);			//Funkcja zwrotna do myszy.
+	glfwSetScrollCallback(window, scroll_callback);				//Funkcja zwrotna do kółka myszy.
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);//Znika kursor myszy. (HIDDEN/DISABLED/NORMAL)
 
 	initializeSystem(particles, n);
 
 	glActiveTexture(GL_TEXTURE0);
-	tex0 = readTexture("bottom.png");
+	tex0 = readTexture("sand2.png"); //Podłoga.
 	glActiveTexture(GL_TEXTURE1);
 	tex1 = readTexture("1.png");
 	glActiveTexture(GL_TEXTURE2);
@@ -199,12 +213,11 @@ void initOpenGLProgram(GLFWwindow* window)
 	tex6 = readTexture("stone-wall.png");
 	glActiveTexture(GL_TEXTURE5);
 	tex7 = readTexture("bricks.png");
-
+	//Czołg
 	buda = readTexture("buda.png");
 	caterpillars = readTexture("caterpillars.png");
 	czarny = readTexture("czarny.png");
 	kola = readTexture("kola.png");
-
 
 	loadModel(std::string("m2.obj"));
 }
@@ -221,7 +234,8 @@ void freeOpenGLProgram(GLFWwindow* window) {
 	glDeleteTextures(1, &tex5);
 	glDeleteTextures(1, &tex6);
 	glDeleteTextures(1, &tex7);
-	//Tutaj umieszaczaj kod, ktory nalezy wykonac po zakonczeniu petli glownej
+	glDisable(GL_LIGHTING);
+	glDisable(GL_COLOR_MATERIAL);
 	delete models;
 }
 
@@ -235,7 +249,7 @@ void freeOpenGLProgram(GLFWwindow* window) {
 
 
 
-void drawTank(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */  float Lena_angle, float Lena_angle2, float angle_x_turret, float angle_y_turret, float Langle_obrot) {
+void drawTank(glm::mat4 P, glm::mat4 V,  float Lena_angle, float Lena_angle2, float angle_x_turret, float angle_y_turret, float Langle_obrot) {
 
 	spLambertTextured->use();	//Aktywacja programu cieniujacego
 	glUniformMatrix4fv(spLambertTextured->u("P"), 1, false, glm::value_ptr(P));
@@ -244,22 +258,22 @@ void drawTank(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */  floa
 	glEnableVertexAttribArray(spLambertTextured->a("texCoord"));	//Wlaczenie uzywania danego atrybutu
 	glEnableVertexAttribArray(spLambertTextured->a("normal"));	//Wlaczenie uzywania danego atrybutu
 
-	drawBase(P, V, /*angle_x, angle_y, */ Lena_angle, Lena_angle2, angle_x_turret, angle_y_turret, Langle_obrot);
+	drawBase(P, V,  Lena_angle, Lena_angle2, angle_x_turret, angle_y_turret, Langle_obrot);
 }
 
 
 
 
 
-void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float Lena_angle, float Lena_angle2, float angle_x_turret, float angle_y_turret, float Langle_obrot) {
+void drawBase(glm::mat4 P, glm::mat4 V, float Lena_angle, float Lena_angle2, float angle_x_turret, float angle_y_turret, float Langle_obrot) {
+	
+	glm::mat4 Base = glm::mat4(1.0f);
+	//Base = glm::translate(Base, glm::vec3(Lena_angle /*+ 2.0f*/, 0.0f, Lena_angle2/* - 3.0f*/));		//Dynamiczne przesunięcie obiektu.
+	Base = glm::translate(Base, pozycjaCzolg);		//Dynamiczne przesunięcie obiektu.
+	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));						//Dynamiczny obrót obiektu.
+	Base = glm::scale(Base, glm::vec3(0.2f, 0.2f, 0.2f));										//Wielkość czoła
 
-	glm::mat4 Base = glm::mat4(1.0f); //Zainicjuj macierz modelu macierzą jednostkową
-	//Base = glm::rotate(Base, angle_y, glm::vec3(0.0f, 1.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi Y o angle_Y stopni
-	///Base = glm::rotate(Base, angle_x, glm::vec3(1.0f, 0.0f, 0.0f)); //Pomnóż macierz modelu razy macierz obrotu o kąt angle wokół osi X o angle_X stopni
 
-	Base = glm::rotate(Base, Langle_obrot, glm::vec3(0.0f, 1.0f, 0.0f));		//Obrót obiektu
-	Base = glm::translate(Base, glm::vec3(Lena_angle, 0.0f, Lena_angle2));		//Przesunięcie obiektu.
-	Base = glm::scale(Base, glm::vec3(0.2f, 0.2f, 0.2f));		//Obrót obiektu
 
 	/*if (leftRotate == true || rightRotate == true) {
 		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
@@ -273,10 +287,9 @@ void drawBase(glm::mat4 P, glm::mat4 V, /*float angle_x, float angle_y, */ float
 		Base = glm::translate(Base, glm::vec3(Lena_angle, -1.3f, Lena_angle2));		//Przesunięcie obiektu.
 	}*/
 
-	//Base = glm::rotate(Base, Lena_angle, glm::vec3(1.0f, 0.0f, 0.0f));
 
-			glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
-			glBindTexture(GL_TEXTURE_2D, buda);
+	glActiveTexture(GL_TEXTURE0); //Assign texture tex0 to the 0-th texturing unit
+	glBindTexture(GL_TEXTURE_2D, buda);
 
 
 	//Cieniowanie obiektu.
@@ -456,7 +469,12 @@ void cleanTank() {
 // 
 // 
 //Drawing procedure
-void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_angle2, float angle_x_turret, float angle_y_turret, float Langle_obrot, float kat_x, float kat_y) {
+void drawScene(GLFWwindow* window, glm::mat4 P, 
+	float Lena_angle, float Lena_angle2, 
+	float angle_x_turret, float angle_y_turret, 
+	float Langle_obrot, 
+	float kat_x, float kat_y,
+	float kat_drzwi) {
 	//Czyszczenie bufora kolorow i glebi
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
@@ -483,29 +501,19 @@ void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_ang
 	glUniformMatrix4fv(spLambert->u("V"), 1, false, glm::value_ptr(V)); //Załaduj do programu cieniującego macierz widoku
 
 	glm::mat4 M = glm::mat4(1.0f);
-	M = glm::translate(M, glm::vec3(-11, 0, -10));
+	M = glm::translate(M, glm::vec3(2.0f, 0, -14));
 	M = glm::scale(M, glm::vec3(0.8, 0.8, 0.8));
 	//-------------------------Ten kawałek kodu powtarzamy dla każdego obiektu.----------------------------------------------
 	glm::mat4 M1 = M;
-	M1 = glm::translate(M1, glm::vec3(4, 3, 0));
-	M1 = glm::scale(M1, glm::vec3(1, 3, 1));
+	M1 = glm::translate(M1, glm::vec3(6.5f, 0.0f, 7.0f));
+	//M1 = glm::scale(M1, glm::vec3(1, 3, 1));
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M1)); //Załaduj do programu cieniującego macierz modelu
 
 
 	glm::mat4 M2 = M;
-	M2 = glm::translate(M2, glm::vec3(-4, 2, 0));
-	M2 = glm::scale(M2, glm::vec3(1.5, 2, 1));
+	M2 = glm::translate(M2, glm::vec3(1.5f, 1.0f, 4.75f));
+	//M2 = glm::scale(M2, glm::vec3(1.5, 2, 1));
 	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M2)); //Załaduj do programu cieniującego macierz modelu
-
-	glm::mat4 M3 = M;
-	M3 = glm::translate(M3, glm::vec3(-1, 1, 5));
-	M3 = glm::scale(M3, glm::vec3(0.5, 1, 1.5));
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M3)); //Załaduj do programu cieniującego macierz modelu
-
-	glm::mat4 M4 = M;
-	M4 = glm::translate(M4, glm::vec3(0, 0.25f, 0));
-	M4 = glm::scale(M4, glm::vec3(0.5, 0.25, 0.5));
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M4)); //Załaduj do programu cieniującego macierz modelu
 
 	glm::mat4 Kostka = glm::mat4(1.0f);
 	Kostka = glm::translate(Kostka, glm::vec3(10, 2, -7));
@@ -517,7 +525,7 @@ void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_ang
 	Kostka2 = glm::translate(Kostka2, glm::vec3(7.0f, 1, -10.5f));
 	Kostka2 = glm::scale(Kostka2, glm::vec3(3.0f, 1.0f, 1.2f));
 
-	int wymiar = 150;
+	int wymiar = 100;
 	//Podłoga
 	glm::mat4 M_floor = glm::mat4(1.0f);
 	M_floor = glm::scale(M_floor, glm::vec3(wymiar, 0.01f, wymiar));
@@ -538,18 +546,60 @@ void drawScene(GLFWwindow* window, glm::mat4 P, float Lena_angle, float Lena_ang
 	Sufit = glm::translate(Sufit, glm::vec3(0, 2 * wymiar, 0));
 	Sufit = glm::scale(Sufit, glm::vec3(wymiar, 0.01f, wymiar));
 
+	int wymiar2 = 3;
+	glm::mat4 Domek = glm::mat4(1.0f);
+	Domek = glm::translate(Domek, glm::vec3(-3.0f, 0.0f, 3.0f));
+	Domek = glm::scale(Domek, glm::vec3(1.0f, 0.6f, 1.0f));
+	glm::mat4 gora = Domek;
+	gora = glm::translate(gora, glm::vec3(0, 2 * wymiar2, 0));
+	gora = glm::scale(gora, glm::vec3(wymiar2, 0.1f, wymiar2));
 
-	texCube(P, V, M_floor, tex0);
-	texCube(P, V, M_left_wall, tex1);
-	texCube(P, V, M_right_wall, tex4);
-	texCube(P, V, M_back_wall, tex3);
-	texCube(P, V, Sufit, tex5);
-	texCube(P, V, Kostka, tex6);
-	texCube(P, V, Kostka2, tex6);
-	texCube(P, V, M1, tex6);
-	texCube(P, V, M2, tex7);
-	texCube(P, V, M3, tex7);
-	texCube(P, V, M4, tex7);
+	glm::mat4 lewa = Domek;
+	lewa = glm::translate(lewa, glm::vec3(-wymiar2, wymiar2, 0));
+	lewa = glm::scale(lewa, glm::vec3(0.1, wymiar2, wymiar2));
+
+	glm::mat4 prawa = Domek;
+	prawa = glm::translate(prawa, glm::vec3(wymiar2, wymiar2, -wymiar2/2));
+	prawa = glm::scale(prawa, glm::vec3(0.1, wymiar2, wymiar2/1.8));
+
+	glm::mat4 tyl = Domek;
+	tyl = glm::translate(tyl, glm::vec3(0, wymiar2, -wymiar2));
+	tyl = glm::scale(tyl, glm::vec3(wymiar2, wymiar2, 0.1f));
+
+	glm::mat4 podloga = Domek;
+	podloga = glm::translate(podloga, glm::vec3(wymiar2, wymiar2, wymiar2 / 1.5));
+	podloga = glm::scale(podloga, glm::vec3(0.01f, wymiar2, wymiar2/2));
+
+	glm::mat4 przod = Domek;
+	przod = glm::translate(przod, glm::vec3(0, wymiar2, wymiar2));
+	przod = glm::scale(przod, glm::vec3(wymiar2, wymiar2, 0.1f));
+
+	glm::mat4 drzwi = glm::mat4(1.0f);
+	drzwi = glm::rotate(drzwi, kat_drzwi, glm::vec3(0.0f, 1.0f, 0.0f));
+	//drzwi = glm::translate(drzwi, glm::vec3(wymiar2+1.3f, wymiar2, -4.5f));
+	drzwi = glm::translate(drzwi, glm::vec3(0.0f, wymiar2/1.75, wymiar2/1.5));
+	drzwi = glm::scale(drzwi, glm::vec3(0.1, wymiar2/1.65f, wymiar2/1.5));
+
+	
+
+
+
+	texCube(P, V, M_floor, tex0, 50.0f);
+	//texCube(P, V, M_left_wall, tex1);
+	//texCube(P, V, M_right_wall, tex4);
+	//texCube(P, V, M_back_wall, tex3);
+	texCube(P, V, Sufit, tex5, 1.0f);
+	texCube(P, V, Kostka, tex6, 1.5f);
+	texCube(P, V, Kostka2, tex6, 2.5f);
+	texCube(P, V, M1, tex6, 1.0f);
+	texCube(P, V, M2, tex6, 1.0f);
+	/*texCube(P, V, podloga, tex7, 1.0f);
+	texCube(P, V, lewa, tex7, 1.0f);
+	texCube(P, V, prawa, tex6);
+	texCube(P, V, tyl, tex7, 1.0f);
+	texCube(P, V, gora, tex7, 1.0f);
+	texCube(P, V, przod, tex7, 1.0f);
+	texCube(P, V, drzwi, tex7, 1.0f);*/
 
 
 	//Przerzucenie tylnego bufora na przedni
@@ -602,18 +652,21 @@ int main(void)
 	float angle = 0; 
 	float kat_x = 0;	
 	float kat_y = 0;
+	float kat_drzwi = 0;
+	bool obrot = false;
 	//Glowna petla
 	while (!glfwWindowShouldClose(window)) //Tak długo jak okno nie powinno zostać zamkniete
 	{
-		//angle_x += speed_x * glfwGetTime();
-		//angle_y += speed_y * glfwGetTime();
-
 		//Poruszanie się czołgu.
 		Lena_angle -= Lena_speed * glfwGetTime(); 
 		Lena_angle2 += Lena_speed2 * glfwGetTime(); 
 		//Obrót czołgu wokół osi Y.
 		Langle_obrot += Lspeed_obrot * glfwGetTime(); 
 		Langle_obrot += Lspeed_obrot2 * glfwGetTime(); 
+
+		pozycjaCzolg -= Lena_speed * static_cast<float>(glfwGetTime()) * calcDir(0, Langle_obrot, glm::vec4(0, 0, 1, 0));
+		pozycjaCzolg -= Lena_speed2 * static_cast<float>(glfwGetTime()) * calcDir(0, Langle_obrot, glm::vec4(1, 0, 0, 0));
+
 		//Obroty górą i lufą z ograniczeniami.
 		if (angle_x_turret <= PI/8 && angle_x_turret >= -PI / 8) 
 			angle_x_turret += speed_x_turret * glfwGetTime(); //Oblicz kat o jaki obiekt obrócił się podczas poprzedniej klatki
@@ -625,15 +678,22 @@ int main(void)
 		else if (angle_y_turret >= PI / 8 && speed_y_turret < 0) angle_y_turret += speed_y_turret * glfwGetTime();
 		else if (angle_y_turret <= -PI / 8 && speed_y_turret > 0) angle_y_turret += speed_y_turret * glfwGetTime();
 		//Kamera typa.
-		kat_x += speed_x_typa * glfwGetTime();
-		kat_y += speed_y_typa * glfwGetTime();
-		pos += (float)(walk_speed * glfwGetTime()) * calcDir(kat_x, kat_y);
+		//kat_x += speed_x_typa * glfwGetTime();
+		//kat_y += speed_y_typa * glfwGetTime();
+		//pos += (float)(walk_speed * glfwGetTime()) * calcDir(kat_x, kat_y);
+		//Kat drzwi.
+		if (kat_drzwi <= 0) obrot = true;
+		if (kat_drzwi > PI/15) obrot = false;
+
+		if (obrot) kat_drzwi += glfwGetTime()/25;
+		else kat_drzwi -= glfwGetTime()/25;
+
 
 		//Poruszanie się kamerą za pomocą myszy.
 		glm::mat4 P = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
 
 		glfwSetTime(0); //Wyzeruj licznik czasu
-		drawScene(window, /*angle_x, angle_y, */P, Lena_angle, Lena_angle2, angle_x_turret, angle_y_turret, Langle_obrot, kat_x, kat_y); //Wykonaj procedurę rysującą
+		drawScene(window, /*angle_x, angle_y, */P, Lena_angle, Lena_angle2, angle_x_turret, angle_y_turret, Langle_obrot, kat_x, kat_y, kat_drzwi); //Wykonaj procedurę rysującą
 		glfwPollEvents(); //Wykonaj procedury callback w zalezności od zdarzeń jakie zaszły.
 	}
 
@@ -736,8 +796,7 @@ void loadModel(std::string plik) {
 
 
 
-glm::vec3 calcDir(float kat_x, float kat_y) {
-	glm::vec4 dir = glm::vec4(0, 0, 1, 0);
+glm::vec3 calcDir(float kat_x, float kat_y, glm::vec4 dir) {
 	glm::mat4 M = glm::rotate(glm::mat4(1.0f), kat_y, glm::vec3(0, 1, 0));
 	M = glm::rotate(M, kat_x, glm::vec3(1, 0, 0));
 	dir = M * dir;
@@ -765,6 +824,10 @@ GLuint readTexture(const char* filename) {
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
 
 	return tex;
 }
@@ -805,9 +868,9 @@ unsigned int loadCubemap(std::vector<std::string> faces)
 	//Metody zawijania tekstury.
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
 
 	return textureID;
 }
@@ -834,29 +897,21 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if (action == GLFW_PRESS) {
 		//Zamknij okno przez escape.
 		if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(window, true);
-
 		//Strzał czasteczkami
 		if (key == GLFW_KEY_Q) shot = true;
-
 		//Poruszanie się.
-		if (key == GLFW_KEY_LEFT) Lena_speed = -PI/2;
-		if (key == GLFW_KEY_RIGHT) Lena_speed = PI/2;
-		if (key == GLFW_KEY_UP) Lena_speed2 = PI;
-		if (key == GLFW_KEY_DOWN) Lena_speed2 = -PI;
+		if (key == GLFW_KEY_1) Lena_speed2 = PI;
+		if (key == GLFW_KEY_2) Lena_speed2 = -PI;
+		if (key == GLFW_KEY_UP) Lena_speed = -PI / 2;
+		if (key == GLFW_KEY_DOWN) Lena_speed = PI / 2;
+		//Obrót całości wokół osi Y.
+		if (key == GLFW_KEY_LEFT) Lspeed_obrot = PI / 10;
+		if (key == GLFW_KEY_RIGHT) Lspeed_obrot2 = -PI / 10;
 		//Obrót górą i lufą.
 		if (key == GLFW_KEY_A) speed_y_turret = -PI / 20;
 		if (key == GLFW_KEY_D) speed_y_turret = PI / 20;
 		if (key == GLFW_KEY_W) speed_x_turret = -PI / 20;
 		if (key == GLFW_KEY_S) speed_x_turret = PI / 20;
-		//Obrót całośći wokół osi Y.
-		if (key == GLFW_KEY_1) {
-			Lspeed_obrot = -PI / 10;
-			leftRotate = true;
-		}
-		if (key == GLFW_KEY_2) {
-			Lspeed_obrot2 = PI / 10;
-			rightRotate = true;
-		}
 		//Kamera.
 		if (key == GLFW_KEY_3) cameraPos += cameraSpeed * cameraFront;
 		if (key == GLFW_KEY_4) cameraPos -= cameraSpeed * cameraFront;
@@ -878,15 +933,15 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 
 	if (action == GLFW_RELEASE) {
-		if (key == GLFW_KEY_LEFT) Lena_speed = 0;
-		if (key == GLFW_KEY_RIGHT) Lena_speed = 0;
-		if (key == GLFW_KEY_UP) Lena_speed2 = 0;
-		if (key == GLFW_KEY_DOWN) Lena_speed2 = 0;
+		if (key == GLFW_KEY_UP) Lena_speed = 0;
+		if (key == GLFW_KEY_DOWN) Lena_speed = 0;
+		if (key == GLFW_KEY_1) Lena_speed2 = 0;
+		if (key == GLFW_KEY_2) Lena_speed2 = 0;
 
-		if (key == GLFW_KEY_1) {
+		if (key == GLFW_KEY_LEFT) {
 			Lspeed_obrot = 0; leftRotate = false;
 		}
-		if (key == GLFW_KEY_2) {
+		if (key == GLFW_KEY_RIGHT) {
 			Lspeed_obrot2 = 0; rightRotate = false;
 		}
 
@@ -1016,26 +1071,26 @@ void processSystem(Particle* particles, glm::vec3 gravity, int n, float timestep
 	}
 }
 
-void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura) {
-	//This array should rather be placed in the myCube.h file, but I placed it here so that the full solution of the exercise is placed in a single procedure
+void texCube(glm::mat4 P, glm::mat4 V, glm::mat4 M, GLuint tekstura, int wymiar) {
+	int wym = wymiar;
 	float myCubeTexCoords[] = {
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, wym,    0.0f, 0.0f,
+		wym, 0.0f,   wym, wym,    0.0f, wym,
 
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, wym,    0.0f, 0.0f,
+		wym, 0.0f,   wym, wym,    0.0f, wym,
 
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, wym,    0.0f, 0.0f,
+		wym, 0.0f,   wym, wym,    0.0f, wym,
 
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, wym,    0.0f, 0.0f,
+		wym, 0.0f,   wym, wym,    0.0f, wym,
 
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
+		wym, 0.0f,   wym, wym,    0.0f, wym,
 
-		1.0f, 0.0f,	  0.0f, 1.0f,    0.0f, 0.0f,
-		1.0f, 0.0f,   1.0f, 1.0f,    0.0f, 1.0f,
+		wym, 0.0f,	  0.0f, 100.0f,    0.0f, 0.0f,
+		wym, 0.0f,   wym, 100.0f,    0.0f, wym,
 	};
 
 	spTextured->use();
