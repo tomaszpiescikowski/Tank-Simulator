@@ -474,7 +474,7 @@ void drawScene(GLFWwindow* window, glm::mat4 P,
 	//Macierz rzutowania wyliczamy w pętli while.
 
 	//To trzeba zakomentować jeżeli nie chcemy żeby kamera poruszała się razem z czołgiem tylko niezależnie od niego.
-	//cameraPos = glm::vec3(Lena_angle-3.0f, 18.0f, Lena_angle2 - 28.0f);
+	cameraPos = glm::vec3(Lena_angle-3.0f, 18.0f, Lena_angle2 - 28.0f);
 	//------------------------------------------------------------------------------------------------------------
 
 	drawTank(P, V, Lena_angle, Lena_angle2, angle_x_turret, angle_y_turret, Langle_obrot);
